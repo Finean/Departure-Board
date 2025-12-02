@@ -108,7 +108,7 @@ def draw_plat(data, platform_num, disp_dim = (192, 32), scroll = 0):
         lcd.text("No services at this platform found", 0, 0, 320, scale = 1)
         lcd.update()
         return
-    stops_string = ""
+    stops_string = " "
     
     if cur_service_id is None or cur_service_id != s_id:
         service_data = utils.get_service_data(s_id)
@@ -125,12 +125,12 @@ def draw_plat(data, platform_num, disp_dim = (192, 32), scroll = 0):
                 stops_string += " & "
             stops_string += stop["locationName"]
         
-    stops_string = stops_string[0:36]
     lcd.text(f"{std} {dest}", 0, 0, 320, scale = 1)
     lcd.text(f"{etd}", 192 - lcd.measure_text(etd, scale = 1), 0, 320, scale = 1)
-    lcd.text(f"Calling at: {stops_string}", 0, 10, 320, scale = 1)
+    stop_ctr = ctr % (len(stops_string) + 5)
+    lcd.text(f"Calling at:{stops_string[stop_ctr:stop_ctr + 37]}", 0, 10, 320, scale = 1)
     
-    if ctr % 20 >= 10 and len(queue) > 1:
+    if ctr % 200 >= 100 and len(queue) > 1:
         lcd.text(f"3 {queue[1][1]} {queue[1][0]}", 0, 20, 320, scale = 1)
         lcd.text(f"{queue[1][2]}", 192 - lcd.measure_text(queue[1][2], scale = 1), 20, 320, scale = 1)
     else:
@@ -141,7 +141,8 @@ def draw_plat(data, platform_num, disp_dim = (192, 32), scroll = 0):
     lcd.update()
 
 ctr = 0
-for i in range(100):
+#Run for ~1 minute
+for i in range(1000):
     draw_plat(data, 13, scroll = ctr)
     ctr += 1
-    time.sleep(1.0)
+    time.sleep(0.05)
