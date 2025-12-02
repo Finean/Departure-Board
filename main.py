@@ -117,12 +117,13 @@ def draw_plat(data, platform_num, disp_dim = (192, 32), scroll = 0):
     stops = service_data["subsequentCallingPoints"][0]["callingPoint"]
     if len(stops) == 1:
         stops_string = stops[0]["locationName"] + " only"
-    for ix, stop in enumerate(stops):
-        if ix > 0:
-            stops_string += ", "
-        if ix == len(stops) - 1:
-            stops_string += " & "
-        stops_string += stop["locationName"]
+    else:
+        for ix, stop in enumerate(stops):
+            if ix > 0:
+                stops_string += ", "
+            if ix == len(stops) - 1:
+                stops_string += " & "
+            stops_string += stop["locationName"]
         
     stops_string = stops_string[0:36]
     lcd.text(f"{std} {dest}", 0, 0, 320, scale = 1)
