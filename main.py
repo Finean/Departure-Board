@@ -127,7 +127,10 @@ def draw_plat(data, platform_num, disp_dim = (192, 32), scroll = 0):
         
     lcd.text(f"{std} {dest}", 0, 0, 320, scale = 1)
     lcd.text(f"{etd}", 192 - lcd.measure_text(etd, scale = 1), 0, 320, scale = 1)
-    stop_ctr = ctr % (len(stops_string) + 5)
+    if len(stops) > 1:
+        stop_ctr = ctr % (len(stops_string) + 5)
+    else:
+        stop_ctr = 0
     lcd.text(f"Calling at:{stops_string[stop_ctr:stop_ctr + 37]}", 0, 10, 320, scale = 1)
     
     if ctr % 200 >= 100 and len(queue) > 1:
@@ -145,4 +148,5 @@ ctr = 0
 for i in range(1000):
     draw_plat(data, 13, scroll = ctr)
     ctr += 1
+
     time.sleep(0.05)
