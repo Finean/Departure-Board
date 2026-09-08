@@ -1,25 +1,38 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 import params::*;
 
 module top(
-        input sysclk,
-        input uart_txd_in,
-        output rp0,
-        output gp0,
-        output bp0,
-        output rp1,
-        output gp1,
-        output bp1,
-        output adra,
-        output adrb,
-        output adrc,
-        output adrd,
-        output adre,
-        output outclock,
+        input wire sysclk,
+        input wire uart_txd_in,
+        input wire rst_btn,
+        output wire rp0,
+        output wire gp0,
+        output wire bp0,
+        output wire rp1,
+        output wire gp1,
+        output wire bp1,
+        output wire adra,
+        output wire adrb,
+        output wire adrc,
+        output wire adrd,
+        output wire adre,
+        output wire outclock,
         output reg outenable,
         output reg latch
     );
+
+    logic [2:0] rst_sync;
+    logic reset;
+    always_ff @(posedge sysclk) begin
+        {reset, rst_sync} <= {rst_sync, rst_btn};
+    end
+
+    `ifdef SYNTHESIS
+        reset = 1'b1;
+        rst_sync <= 2'b00;
+    `endif
     
     wire [2:0][7:0] led_colour; //'{8'h00, 8'h40, 8'hFF}
     wire [2:0] brightness; // 3'b011
@@ -79,6 +92,7 @@ module top(
     
     ledmatrix driv0(
         .sysclk(sysclk),
+        .reset(reset),
         .px0(out_up),
         .px1(out_lo),
         .px_colour(proc_colour),
@@ -95,8 +109,9 @@ module top(
     
     imgbuffer buf0(
         .sysclk(sysclk),
+        .reset(reset),
         .buf_select(switch_buf),
-        .write(write),
+        .write_enable(write),
         .in_data(wrt_data),
         .in_col(wrt_col),
         .in_row(wrt_row),
@@ -114,6 +129,7 @@ module top(
     
     textcontroller ctrl0(
         .sysclk(sysclk),
+        .reset(reset),
         .uart_val(uart_val),
         .uart_recd(uart_recd),
         .buf_ready(buf_ready),

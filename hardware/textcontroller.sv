@@ -1,12 +1,15 @@
+`timescale 1ns/1ps
+`default_nettype none
 
 import params::*;
 import font::*;
 
 module textcontroller(
-        input sysclk,
-        input [7:0] uart_val,
-        input uart_recd,
-        input buf_ready,
+        input wire sysclk,
+        input wire reset,
+        input wire [7:0] uart_val,
+        input wire uart_recd,
+        input wire buf_ready,
         output reg uart_rst,
         output reg [15:0] wrt_col,
         output reg [5:0] wrt_row,
@@ -44,6 +47,24 @@ module textcontroller(
     // 8 lowname21 C9
     // 9 lowname22 CA
     // 10 low etd2 CB -> cur_data[10];
+
+    // font_table block ROM
+    (* rom_style = "block" *) reg [5:0][8:0] font_table [0:90];
+
+    `ifdef SYNTHESIS
+        font_table = FONT_LIB;
+    `endif
+
+    logic [7:0] font_addr, cur_char_ascii;
+    logic [5:0][8:0] brom_reg, cur_char;
+
+    always_ff @(posedge sysclk) begin
+        brom_reg <= font_table[font_addr - 32];
+        cur_char_ascii <= font_addr;
+
+        cur_char <= cur_char_ascii > 31 ? (cur_char_ascii < 123 ? brom_reg : 0) : 0;
+    end
+
     
     reg [7:0] state;
     reg [7:0] cur_head;
@@ -57,13 +78,11 @@ module textcontroller(
     
     reg [3:0] cur_row;
     reg [7:0] cur_col;
-    
-    wire [5:0][8:0] cur_char;
-    wire [7:0] cur_char_ascii;
+
     wire [4:0] cur_width;
     wire [3:0] cur_offset;
     
-    reg cyclehold;
+    reg [2:0] cyclehold;
     
     reg head_double_tmp;
     reg mid_double_tmp;
@@ -75,64 +94,106 @@ module textcontroller(
     
     reg [15:0] timeout_counter;
     
-    
-    assign cur_char_ascii = cur_data[cur_row][cur_col];
-    assign cur_char = cur_char_ascii > 31 ? (cur_char_ascii < 123 ? FONT_LIB[cur_char_ascii - 32] : 0) : 0;
+    assign font_addr = cur_data[cur_row][cur_col];
     assign cur_width = cur_char[5][4 +: 5];
     assign cur_offset = cur_char[5][0 +: 4];
         
-    initial begin
-        brightness = 3'b011;
-        led_colour = '{8'h00, 8'h40, 8'hFF};
-        state = 1;
-        timeout_counter = 0;
-        cur_head = 8'hFF;
-        write = 0;
-        switch_buf = 0;
-        max_scroll = 0;
-        head_double = 0;
-        mid_double = 0;
-        low_info = '{2'b00, 2'b00};
-        cur_row = 0;
-        cur_col = 0;
-        for (int i = 0; i < 11; i = i + 1) begin
-            cur_data[i] = '{default: 8'hFF};
+    `ifdef SYNTHESIS
+        initial begin
+            brightness = 3'b011;
+            led_colour = '{8'h00, 8'h40, 8'hFF};
+            timeout_counter = 0;
+            write = 0;
+            switch_buf = 0;
+            max_scroll = 0;
+            head_double = 0;
+            mid_double = 0;
+            low_info = '{2'b00, 2'b00};
+            for (int i = 0; i < 11; i = i + 1) begin
+                cur_data[i] = '{default: 8'hFF};
+            end
         end
-        
-        cur_data[0][0 +: 11] = '{8'hFF, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h34, 8'h33, 8'h3A, 8'h32, 8'h31};
-        cur_data[1][0 +: 8] = '{8'hFF, 8'h65, 8'h6D, 8'h69, 8'h54, 8'h20, 8'h6E, 8'h4F};
-        cur_data[2][0 +: 8] = '{8'hFF, 8'h65, 8'h6D, 8'h69, 8'h54, 8'h20, 8'h6E, 8'h4F};
-        cur_data[3][0 +: 57] = '{8'hFF, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h74, 8'h73, 8'h65, 8'h54, 8'h20, 8'h3A, 8'h74, 8'h61, 8'h20, 8'h67, 8'h6E, 8'h69, 8'h6C, 8'h6C, 8'h61, 8'h43};
-        cur_data[4][0 +: 8] = '{8'hFF, 8'h65, 8'h6D, 8'h69, 8'h54, 8'h20, 8'h6E, 8'h4F};
-        cur_data[5][0 +: 5] = '{8'hFF, 8'h74, 8'h73, 8'h65, 8'h54};
-        cur_data[7][0 +: 5] = '{8'hFF, 8'h74, 8'h73, 8'h65, 8'h54};
-    end
-    
+    `endif
+
     integer i;
-    
+
+    logic new_uart_msg;
+    assign new_uart_msg = uart_recd && !uart_rst;
+
+    localparam [7:0] WAIT_RECV = 0;
+    localparam [7:0] DECODE_MSG = 1;
+    localparam [7:0] LISTEN_MSG = 2;
+    localparam [7:0] WRITE_TEXT = 3;
+    localparam [7:0] CLEAR_BUFFER = 4;
+    localparam [7:0] TEXT_COLOUR = 5;
+
     always_ff @(posedge sysclk) begin
+        if (reset) begin
+            state = 4;
+        end else begin
+            case (state)
+                WAIT_RECV: begin
+                    if (new_uart_msg) begin
+                        state <= DECODE_MSG;
+                    end
+                end
+                DECODE_MSG: begin
+                    casez (cur_head)
+                        8'h00: state <= WAIT_RECV;
+                        8'hFF: state <= CLEAR_BUFFER;
+                        8'hA1, 8'hA2, 8'hA3, 8'hB4, 8'hB5, 8'hC6, 8'hC7, 8'hC8, 8'hC9, 8'hCA, 8'hCB: begin
+                            state <= LISTEN_MSG;
+                        end
+                        8'h1Z: state <= WAIT_RECV;
+                        8'h20: state <= TEXT_COLOUR;
+                        default: state <= WAIT_RECV;
+                    endcase
+                end
+                LISTEN_MSG: begin
+                    if (new_uart_msg && uart_val == 8'h00) begin
+                        state <= WAIT_RECV;
+                    end
+                end
+                WRITE_TEXT: begin
+                    if (cur_row == 11 && buf_ready) begin
+                        state <= WAIT_RECV;
+                    end
+                end
+                CLEAR_BUFFER: begin
+                    if (wrt_col == BUFFER_WIDTH - 1) begin
+                        state <= WRITE_TEXT;
+                    end
+                end
+                TEXT_COLOUR: begin
+                    if (counter >= 3 && buf_ready) begin
+                        state <= WAIT_RECV;
+                    end
+                end
+                default: state <= WAIT_RECV;
+            endcase
+        end
+
         uart_rst <= 0;
         write <= 0;
+
         case (state)
-            0: begin // Listen for header
-                if (uart_recd && !uart_rst) begin
+            WAIT_RECV: begin // Listen for header
+                if (new_uart_msg) begin
                     cur_head <= uart_val;
                     uart_rst <= 1;
-                    state <= 1;
                 end
             end
-            1: begin // Parse received header
+            DECODE_MSG: begin // Parse received header
                 casez (cur_head)
                     8'h00: begin
                         for (i = 0; i < 11; i = i + 1) begin
                             cur_data[i][0] <= 8'hFF;
                         end
-                        state <= 0;
                     end
                     8'hFF: begin
                         cur_col <= 0;
                         cur_row <= 0;
-                        cyclehold <= 1;
+                        cyclehold <= 3'b111;
                         wrt_col <= 0;
                         wrt_row <= 0;
                         out_data <= 0;
@@ -141,35 +202,30 @@ module textcontroller(
                         mid_double_tmp <= 1;
                         low_info_tmp <= '{2'b11, 2'b11};
                         max_scroll_tmp <= 0;
-                        state <= 4;
                     end
                     8'hA1, 8'hA2, 8'hA3, 8'hB4, 8'hB5, 8'hC6, 8'hC7, 8'hC8, 8'hC9, 8'hCA, 8'hCB: begin
                         cur_line <= cur_head[0 +: 4] - 1;
-                        state <= 2;
                     end
                     8'h1Z: begin
                         brightness <= cur_head[0 +: 3];
-                        state <= 0;
                     end
                     8'h20: begin
-                        state <= 5;
                         counter <= 0;
                     end
-                    default: state <= 0;
+                    default: ;
                 endcase
             end
-            2: begin // Listen for input
-                if (uart_recd && !uart_rst) begin
+            LISTEN_MSG: begin // Listen for input
+                if (new_uart_msg) begin
                     if (uart_val == 8'h00) begin
                         cur_data[cur_line] <= in_buffer;
-                        state <= 0;
                     end else begin
                         in_buffer <= {in_buffer[0 +: 120], uart_val};
                     end
                     uart_rst <= 1;
                 end
             end
-            3: begin // Write to image buffer, then switch
+            WRITE_TEXT: begin // Write to image buffer, then switch
                 write <= 0;
                 if (cur_row == 11) begin // Switch
                     if (buf_ready) begin
@@ -180,7 +236,7 @@ module textcontroller(
                         switch_buf <= !switch_buf;
                         state <= 0;
                     end
-                end else if (cur_char_ascii == 8'hFF || cur_col >= 200) begin
+                end else if (font_addr == 8'hFF || cur_col >= 200) begin
                     if (cur_col == 0) begin
                         case (cur_row) 
                             1: head_double_tmp <= 0;
@@ -212,12 +268,12 @@ module textcontroller(
                         9: wrt_col <= WIDTH - 43;
                         default: wrt_col <= 1;
                     endcase
-                    cyclehold <= 1;
+                    cyclehold <= 3'b111;
                     cur_row <= cur_row + 1;
                     cur_col <= 0;
                     char_x <= 0;
                     char_y <= 0;
-                end else if (cyclehold) begin
+                end else if (cyclehold[2]) begin
                     case (cur_row) // Set wrt_row
                         0, 1, 2:   wrt_row <= 0;
                         3:         wrt_row <= 11;
@@ -237,7 +293,7 @@ module textcontroller(
                     end else begin
                         write <= cur_char[4][8];
                         out_data <= cur_char[4][8];
-                        cyclehold <= 0;
+                        cyclehold <= {cyclehold[0+:2], 1'b0};
                     end
                 end else begin
                     out_data <= cur_char[4 - char_x][8 - char_y];
@@ -259,14 +315,13 @@ module textcontroller(
                     end
                 end
             end
-            4: begin // Clear image buffer
+            CLEAR_BUFFER: begin // Clear image buffer
                 out_data <= 0;
                 write <= 1;
                 if (wrt_col == BUFFER_WIDTH - 1) begin
                     wrt_col <= 1;
                     wrt_row <= 0;
                     write <= 0;
-                    state <= 3;
                 end else if (wrt_row == 49) begin
                     wrt_col <= wrt_col + 1;
                     wrt_row <= 0;
@@ -274,20 +329,20 @@ module textcontroller(
                     wrt_row <= wrt_row + 1;
                 end
             end
-            5: begin
+            TEXT_COLOUR: begin
                 if (counter >= 3) begin
                     if (buf_ready) begin
                         led_colour <= led_colour_tmp;
                         counter <= 0;
                         state <= 0;
                     end
-                end else if (uart_recd && !uart_rst) begin
+                end else if (new_uart_msg) begin
                     led_colour_tmp[counter] <= uart_val;
                     counter <= counter + 1;
                     uart_rst <= 1;
                 end
             end
-            default: state <= 0;
+            default: ;
         endcase
     end 
 endmodule

@@ -1,11 +1,13 @@
+`timescale 1ns/1ps
+`default_nettype none
 
 import params::*;
 
 module uart_rx
     (
-    input clk,
-    input read,
-    input rx_in,
+    input wire clk,
+    input wire read,
+    input wire rx_in,
     output reg [7:0] value,
     output reg par_ok,
     output reg recd
