@@ -1,9 +1,11 @@
+`timescale 1ns/1ps
+`default_nettype none
 
 import params::*;
 
 module imgprocess(
-        input [2:0][7:0] in,
-        output reg [2:0][7:0] out
+        input wire [2:0][7:0] in,
+        output logic [2:0][7:0] out
     );
     
     function int gamma_fn (input int x);

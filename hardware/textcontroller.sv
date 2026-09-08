@@ -1,5 +1,6 @@
 
 import params::*;
+import font::*;
 
 module textcontroller(
         input sysclk,

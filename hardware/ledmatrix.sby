@@ -1,0 +1,21 @@
+[tasks]
+cvr
+prf
+
+[options]
+cvr: mode cover
+cvr: depth 30
+prf: mode prove
+prf: depth 20
+
+[engines]
+smtbmc
+
+[script]
+read -sv params.sv
+read -sv ledmatrix.sv
+prep -top ledmatrix
+
+[files]
+ledmatrix.sv
+params.sv
