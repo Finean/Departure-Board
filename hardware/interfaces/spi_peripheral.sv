@@ -85,7 +85,7 @@ module spi_peripheral #(
             o_dout_valid <= 1'b0;
         end else begin
             if (!active) begin
-                spi_din_counter <= 0;
+                spi_din_counter <= 3'b0;
             end
 
             if (sclk_posedge && active) begin

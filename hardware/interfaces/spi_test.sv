@@ -118,11 +118,19 @@ module spi_test (
             f_byte_b <= $anyconst;
 
             if (pico ^ $past(pico)) begin
-                data_shifted_on_shift: assume (shift || $past(shift));
+                data_shifted_on_shift: assume(shift || $past(shift));
             end
 
             if (poci_ready && poci_valid) begin
                 poci_valid <= 1'b0;
+            end
+
+            if (f_past_valid && (sample || $past(sample))) begin
+                sample_cntr_increments: assert(f_sample_bit == $past(f_sample_bit) + 3'b1);
+            end
+
+            if (f_past_valid && $past(sysclk) && ($past(cs) || $past(rst_btn))) begin
+                sample_cntr_resets_sync: assert(f_sample_bit == 0);
             end
 
             if (active && f_past_valid && !$past(reset)) begin
