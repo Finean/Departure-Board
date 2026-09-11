@@ -1,0 +1,19 @@
+[tasks]
+prf
+
+[options]
+prf: mode prove
+prf: depth 40
+multiclock on
+
+[engines]
+smtbmc
+
+[script]
+read -formal spi_peripheral.sv
+read -formal spi_test.sv
+prep -top spi_test
+
+[files]
+spi_peripheral.sv
+spi_test.sv

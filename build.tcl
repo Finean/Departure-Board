@@ -7,10 +7,12 @@
 
 # Top-level module to synthesize
 set TOP_MODULE   "top"
+set XDC_FILE "./hardware/Cmod-A7-Master.xdc"
 
 # Allow overriding TOP_MODULE from the command line
 if { $argc > 0 } {
     set TOP_MODULE [lindex $argv 0]
+    set XDC_FILE [lindex $argv 1]
 }
 
 # SystemVerilog / Verilog source files (edit this list)
@@ -19,14 +21,11 @@ set SV_SOURCES [concat \
     [glob "./hardware/interfaces/*.sv"] \
 ]
 
-# XDC constraints file (clock + frequency only, see example below)
-set XDC_FILE    "./hardware/Cmod-A7-Master.xdc"
-
 # Artix-7 35T part
 set PART        "xc7a35tcpg236-1"
 
 # Output/work directory
-set WORK_DIR    "./vivado_timing_run"
+set WORK_DIR    "./vivado_build"
 
 # Optional: number of jobs for synth/place/route
 set NUM_JOBS    20
@@ -122,6 +121,9 @@ opt_design
 place_design
 phys_opt_design
 route_design
+
+# Generate bitstream
+write_bitstream -force "${TOP_MODULE}.bit"
 
 write_checkpoint -force "${TOP_MODULE}_post_route.dcp"
 

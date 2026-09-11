@@ -11,7 +11,8 @@ PROJ_PATH = os.path.join(BASE_DIR, "hardware")
 sv_srcs = [f for f in glob.glob(os.path.join(PROJ_PATH, "*.sv"), recursive=False)]
 
 dut_configs = [
-    dict(top="ledmatrix", sources=sv_srcs, testmodule="tb_ledmatrix"),
+    #dict(top="ledmatrix", sources=sv_srcs, testmodule="tb_ledmatrix"),
+    dict(top="spi_test_wrapper", sources=["interfaces/spi_peripheral.sv", "interfaces/spi_test.sv"], testmodule="tb_spi"),
 ]
 
 # Ignore config.sby (created on run without -t flag)

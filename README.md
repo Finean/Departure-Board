@@ -1,0 +1,1 @@
+previous version uses ~9k LUTs, this is far too many

@@ -64,7 +64,6 @@ module textcontroller(
 
         cur_char <= cur_char_ascii > 31 ? (cur_char_ascii < 123 ? brom_reg : 0) : 0;
     end
-
     
     reg [7:0] state;
     reg [7:0] cur_head;

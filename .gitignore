@@ -1,4 +1,10 @@
-vivado_ooc_run/
+__pycache__/
+.pytest_cache/
+vivado_run/
+vivado_build/
+sim_build/
+.Xil/
+.venv/
 dfx_runtime.txt
 *.jou
 *.log
